@@ -42,6 +42,11 @@ type Query struct {
 	RowsAffected int
 }
 
+// URL ...
+type URL struct {
+	url string
+}
+
 func handleRequests() {
 	log.Println("Starting development server at http://localhost:8020/")
 	log.Println("Quit the server with CONTROL-C.")
@@ -72,16 +77,14 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func shortenURL(w http.ResponseWriter, r *http.Request) {
+	var bodyURL URL
+	err := json.NewDecoder(r.Body).Decode(&bodyURL)
 
-	err := r.ParseForm()
 	if err != nil {
 		formatResponse("false", "Kindly Enter a value for url", w)
 	}
-	url := r.FormValue("url")
-	// u, err := url.ParseRequestURI(url)
-	// if err != nil {
-	// 	formatResponse("false", "Invalid URL", w)
-	// }
+
+	url := bodyURL.url
 
 	bs64 := b64.StdEncoding.EncodeToString([]byte(url))
 	shortURL := bs64[len(bs64)-6 : len(bs64)]
@@ -115,4 +118,5 @@ func formatResponse(status string, message string, w http.ResponseWriter) {
 	res["status"] = status
 	res["message"] = message
 	json.NewEncoder(w).Encode(res)
+	return
 }
