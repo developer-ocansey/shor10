@@ -17,7 +17,7 @@ var err error
 // StoreURL ...
 type StoreURL struct {
 	ID          int    `json:"id"`
-	FakeURL     string `json:"fakeURL"` // generatedURL...
+	generatedURL     string `json:"generatedURL"`
 	OriginalURL string `json:"originalURL"`
 }
 
@@ -30,9 +30,9 @@ type Response struct {
 
 // Value ...
 type Value struct {
-	id          int
-	fakeURL     string
-	originalURL string
+	id           int
+	generatedURL string
+	originalURL  string
 }
 
 // Query ...
@@ -88,11 +88,11 @@ func shortenURL(w http.ResponseWriter, r *http.Request) {
 
 	bs64 := b64.StdEncoding.EncodeToString([]byte(url))
 	shortURL := bs64[len(bs64)-6 : len(bs64)]
-	data := StoreURL{FakeURL: shortURL, OriginalURL: url}
+	data := StoreURL{GeneratedURL: shortURL, OriginalURL: url}
 	response := db.Where(&StoreURL{OriginalURL: url}).Find(&data)
 
 	if response.RowsAffected > 0 {
-		formatResponse("exist", r.Host+"/"+data.FakeURL, w)
+		formatResponse("exist", r.Host+"/"+data.GeneratedURL, w)
 	} else {
 		db.Create(&data)
 		formatResponse("created", r.Host+"/"+data.FakeURL, w)
@@ -104,7 +104,7 @@ func redirect(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	path := vars["path"]
 	data := StoreURL{}
-	response := db.Where(&StoreURL{FakeURL: path}).First(&data)
+	response := db.Where(&StoreURL{GeneratedURL: path}).First(&data)
 
 	if response.RowsAffected > 0 {
 		http.Redirect(w, r, data.OriginalURL, http.StatusSeeOther)
