@@ -1,8 +1,9 @@
 package main
 
 import (
-	b64 "encoding/base64"
+	"crypto/sha1"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -16,9 +17,11 @@ var err error
 
 // StoreURL ...
 type StoreURL struct {
-	ID          int    `json:"id"`
-	generatedURL     string `json:"generatedURL"`
-	OriginalURL string `json:"originalURL"`
+	ID           int    `json:"id"`
+	GeneratedURL string `json:"generatedURL"`
+	OriginalURL  string `json:"originalURL"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
 }
 
 // Response ...
@@ -58,7 +61,6 @@ func handleRequests() {
 }
 
 func main() {
-
 	db, err = gorm.Open("mysql", "b9d1984e35796d:3d04ee89@(eu-cdbr-west-03.cleardb.net)/heroku_f12d52ab1d22e5f")
 
 	if err != nil {
@@ -72,22 +74,24 @@ func main() {
 }
 
 func healthz(w http.ResponseWriter, r *http.Request) {
-
 	formatResponse("true", "Success is not final; failure is not fatal: It is the courage to continue that counts.", w)
 }
 
 func shortenURL(w http.ResponseWriter, r *http.Request) {
 	var bodyURL URL
-	err := json.NewDecoder(r.Body).Decode(&bodyURL)
 
-	if err != nil {
-		formatResponse("false", "Kindly Enter a value for url", w)
+	if err := json.NewDecoder(r.Body).Decode(&bodyURL); err != nil {
+		log.Fatal(err)
 	}
 
 	url := bodyURL.url
 
-	bs64 := b64.StdEncoding.EncodeToString([]byte(url))
-	shortURL := bs64[len(bs64)-6 : len(bs64)]
+	h := sha1.New()
+	h.Write([]byte(url))
+	hashedURL := string(h.Sum(nil))
+	sliceURL := hashedURL[len(hashedURL)-3 : len(hashedURL)]
+	shortURL := fmt.Sprintf("%x", sliceURL)
+
 	data := StoreURL{GeneratedURL: shortURL, OriginalURL: url}
 	response := db.Where(&StoreURL{OriginalURL: url}).Find(&data)
 
@@ -95,12 +99,11 @@ func shortenURL(w http.ResponseWriter, r *http.Request) {
 		formatResponse("exist", r.Host+"/"+data.GeneratedURL, w)
 	} else {
 		db.Create(&data)
-		formatResponse("created", r.Host+"/"+data.FakeURL, w)
+		formatResponse("created", r.Host+"/"+data.GeneratedURL, w)
 	}
 }
 
 func redirect(w http.ResponseWriter, r *http.Request) {
-
 	vars := mux.Vars(r)
 	path := vars["path"]
 	data := StoreURL{}
