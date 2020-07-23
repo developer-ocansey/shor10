@@ -47,7 +47,7 @@ type Query struct {
 
 // URL ...
 type URL struct {
-	url string
+	URL string `json:"url"`
 }
 
 func handleRequests() {
@@ -83,13 +83,13 @@ func shortenURL(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&bodyURL); err != nil {
 		log.Fatal(err)
 	}
-
-	url := bodyURL.url
+	url := bodyURL.URL
 
 	h := sha1.New()
 	h.Write([]byte(url))
 	hashedURL := string(h.Sum(nil))
-	sliceURL := hashedURL[len(hashedURL)-3 : len(hashedURL)]
+	fmt.Fprintf(w, "%x", hashedURL)
+	sliceURL := hashedURL[0:3]
 	shortURL := fmt.Sprintf("%x", sliceURL)
 
 	data := StoreURL{GeneratedURL: shortURL, OriginalURL: url}
