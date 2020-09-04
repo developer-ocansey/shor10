@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
+	"github.com/joho/godotenv"
 )
 
-var db *gorm.DB
 var err error
 
 // StoreURL ...
@@ -50,18 +51,25 @@ type URL struct {
 	URL string `json:"url"`
 }
 
-func handleRequests() {
-	log.Println("Starting development server at http://localhost:8020/")
-	log.Println("Quit the server with CONTROL-C.")
-	myRouter := mux.NewRouter().StrictSlash(true)
-	myRouter.HandleFunc("/", healthz)
-	myRouter.HandleFunc("/shorten-url", shortenURL) //POST long URL and get short path
-	myRouter.HandleFunc("/{path}", redirect)        // pass value to URL and redirect to origin al path stored
-	log.Fatal(http.ListenAndServe(":8020", myRouter))
+// Handler ...
+type Handler struct {
+	db *gorm.DB
+}
+
+func init() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 }
 
 func main() {
-	db, err = gorm.Open("mysql", "b9d1984e35796d:3d04ee89@(eu-cdbr-west-03.cleardb.net)/heroku_f12d52ab1d22e5f")
+	dbConString, err := goDotEnvVariable("DBCONNECTINGSTRING")
+	if err != nil {
+		fmt.Errorf("cannot call goDotEnvVariable function: ", err)
+	}
+
+	db, err := gorm.Open("mysql", dbConString)
 
 	if err != nil {
 		log.Println("Connection Failed to Open")
@@ -69,45 +77,48 @@ func main() {
 		log.Println("Connection Established")
 	}
 
-	db.AutoMigrate(&StoreURL{})
-	handleRequests()
+	db.AutoMigrate(&StoreURL{}) //refactor to init or migrate function called in main
+	handleRequests(db)
 }
 
 func healthz(w http.ResponseWriter, r *http.Request) {
 	formatResponse("true", "Success is not final; failure is not fatal: It is the courage to continue that counts.", w)
 }
 
-func shortenURL(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) shortenURL(w http.ResponseWriter, r *http.Request) {
 	var bodyURL URL
 
 	if err := json.NewDecoder(r.Body).Decode(&bodyURL); err != nil {
 		log.Fatal(err)
 	}
+
 	url := bodyURL.URL
-
-	h := sha1.New()
-	h.Write([]byte(url))
-	hashedURL := string(h.Sum(nil))
-	fmt.Fprintf(w, "%x", hashedURL)
-	sliceURL := hashedURL[0:3]
-	shortURL := fmt.Sprintf("%x", sliceURL)
-
-	data := StoreURL{GeneratedURL: shortURL, OriginalURL: url}
-	response := db.Where(&StoreURL{OriginalURL: url}).Find(&data)
-
-	if response.RowsAffected > 0 {
-		formatResponse("exist", r.Host+"/"+data.GeneratedURL, w)
+	if len(url) < 25 {
+		formatResponse("invalid", "URL must be more than 24 characters", w)
 	} else {
-		db.Create(&data)
-		formatResponse("created", r.Host+"/"+data.GeneratedURL, w)
+		hash := sha1.New()
+		hash.Write([]byte(url))
+		hashedURL := string(hash.Sum(nil))
+		sliceURL := hashedURL[0:3]
+		shortURL := fmt.Sprintf("%x", sliceURL)
+
+		data := StoreURL{GeneratedURL: shortURL, OriginalURL: url}
+		response := h.db.Where(&StoreURL{OriginalURL: url}).Find(&data)
+
+		if response.RowsAffected > 0 {
+			formatResponse("exist", "http://"+r.Host+"/"+data.GeneratedURL, w)
+		} else {
+			h.db.Create(&data)
+			formatResponse("created", "http://"+r.Host+"/"+data.GeneratedURL, w)
+		}
 	}
 }
 
-func redirect(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) redirect(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	path := vars["path"]
 	data := StoreURL{}
-	response := db.Where(&StoreURL{GeneratedURL: path}).First(&data)
+	response := h.db.Where(&StoreURL{GeneratedURL: path}).First(&data)
 
 	if response.RowsAffected > 0 {
 		http.Redirect(w, r, data.OriginalURL, http.StatusSeeOther)
@@ -122,4 +133,22 @@ func formatResponse(status string, message string, w http.ResponseWriter) {
 	res["message"] = message
 	json.NewEncoder(w).Encode(res)
 	return
+}
+
+func handleRequests(db *gorm.DB) {
+	handler := &Handler{db: db}
+	log.Println("Starting development server at http://localhost:8020/")
+	log.Println("Quit the server with CONTROL-C.")
+	router := mux.NewRouter().StrictSlash(true)
+	router.HandleFunc("/", healthz)
+	router.HandleFunc("/shorten-url", handler.shortenURL) // POST long URL and get short path
+	router.HandleFunc("/{path}", handler.redirect)        // Pass value to URL and redirect to original path stored
+	log.Fatal(http.ListenAndServe(":8020", router))
+}
+
+func goDotEnvVariable(key string) (string, error) {
+	if err := godotenv.Load(".env"); err != nil {
+		return "", fmt.Errorf("Error loading .env file")
+	}
+	return os.Getenv(key), nil
 }
