@@ -66,7 +66,7 @@ func init() {
 func main() {
 	dbConString, err := goDotEnvVariable("DBCONNECTINGSTRING")
 	if err != nil {
-		fmt.Errorf("cannot call goDotEnvVariable function: ", err)
+		fmt.Errorf("cannot call goDotEnvVariable function: %v", err)
 	}
 
 	db, err := gorm.Open("mysql", dbConString)
