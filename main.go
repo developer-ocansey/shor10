@@ -14,8 +14,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var err error
-
 // StoreURL ...
 type StoreURL struct {
 	ID           int    `json:"id"`
@@ -59,26 +57,41 @@ type Handler struct {
 func init() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal("Ecannot load environment file")
 	}
 }
 
+func connectDB() (*gorm.DB, error) {
+	DBUsername := os.Getenv("DB_USERNAME")
+	DBPassword := os.Getenv("DB_PASSWORD")
+	DBName := os.Getenv("DB_NAME")
+	DBHost := os.Getenv("DB_HOST")
+	conn := fmt.Sprintf("%s:%s@(%s)/%s", DBUsername, DBPassword, DBHost, DBName)
+
+	db, err := gorm.Open("mysql", conn)
+	if err != nil {
+		return nil, fmt.Errorf("cannot connect to database: %v", err)
+	}
+	log.Println("established connection to database")
+	return db, nil
+
+}
+
+func migrateSchema() error {
+	dbConn, err := connectDB()
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	dbConn.AutoMigrate(&StoreURL{}) //refactor to init or migrate function called in main, create a function to handle this and return error.
+	handleRequests(dbConn)
+	return nil
+}
+
 func main() {
-	dbConString, err := goDotEnvVariable("DBCONNECTINGSTRING")
+	err := migrateSchema()
 	if err != nil {
-		fmt.Errorf("cannot call goDotEnvVariable function: %v", err)
+		fmt.Errorf("cannot migrate schema: %v", err)
 	}
-
-	db, err := gorm.Open("mysql", dbConString)
-
-	if err != nil {
-		log.Println("Connection Failed to Open")
-	} else {
-		log.Println("Connection Established")
-	}
-
-	db.AutoMigrate(&StoreURL{}) //refactor to init or migrate function called in main
-	handleRequests(db)
 }
 
 func healthz(w http.ResponseWriter, r *http.Request) {
@@ -144,11 +157,4 @@ func handleRequests(db *gorm.DB) {
 	router.HandleFunc("/shorten-url", handler.shortenURL) // POST long URL and get short path
 	router.HandleFunc("/{path}", handler.redirect)        // Pass value to URL and redirect to original path stored
 	log.Fatal(http.ListenAndServe(":8020", router))
-}
-
-func goDotEnvVariable(key string) (string, error) {
-	if err := godotenv.Load(".env"); err != nil {
-		return "", fmt.Errorf("Error loading .env file")
-	}
-	return os.Getenv(key), nil
 }

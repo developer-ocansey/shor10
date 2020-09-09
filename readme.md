@@ -1,3 +1,4 @@
+
 Gorilla mux: For creating routes and HTTP handlers.
 go get github.com/gorilla/mux
 
@@ -18,3 +19,4 @@ TODO:
 
 check string lenght
 also search before commit
+-refactor db connection
