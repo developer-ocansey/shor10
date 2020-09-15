@@ -38,7 +38,8 @@ type URL struct {
 	URL string `json:"url"`
 }
 
-func shortenURL(w http.ResponseWriter, r *http.Request) {
+// ShortenURL ...
+func ShortenURL(w http.ResponseWriter, r *http.Request) {
 	var bodyURL URL
 
 	if err := json.NewDecoder(r.Body).Decode(&bodyURL); err != nil {
@@ -67,7 +68,8 @@ func shortenURL(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func redirect(w http.ResponseWriter, r *http.Request) {
+// Redirect ...
+func Redirect(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	path := vars["path"]
 	data := models.StoreURL{}

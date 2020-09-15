@@ -11,20 +11,20 @@ import (
 // HandleRequests ..
 func HandleRequests() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/shorten-url", controllers.shortenURL).Methods("POST") // POST long URL and get short path
-	router.HandleFunc("/{path}", controllers.redirect).Methods("GET")         // Pass value to URL and redirect to original path stored
+	router.HandleFunc("/shorten-url", controllers.ShortenURL).Methods("POST") // POST long URL and get short path
+	router.HandleFunc("/{path}", controllers.Redirect).Methods("GET")         // Pass value to URL and redirect to original path stored
 
 	router.HandleFunc("/", controllers.Healthz).Methods("GET")
 	router.HandleFunc("/register", controllers.CreateUser).Methods("POST")
 	router.HandleFunc("/login", controllers.Login).Methods("POST")
 
 	// Auth route
-	subrouter := router.PathPrefix("/auth").Subrouter()
-	subrouter.Use(auth.JwtVerify)
-	subrouter.HandleFunc("/user", controllers.FetchUsers).Methods("GET")
-	subrouter.HandleFunc("/user/{id}", controllers.GetUser).Methods("GET")
-	subrouter.HandleFunc("/user/{id}", controllers.UpdateUser).Methods("PUT")
-	subrouter.HandleFunc("/user/{id}", controllers.DeleteUser).Methods("DELETE")
+	// subrouter := router.PathPrefix("/auth").Subrouter()
+	// subrouter.Use(auth.JwtVerify)
+	// subrouter.HandleFunc("/user", controllers.FetchUsers).Methods("GET")
+	// subrouter.HandleFunc("/user/{id}", controllers.GetUser).Methods("GET")
+	// subrouter.HandleFunc("/user/{id}", controllers.UpdateUser).Methods("PUT")
+	// subrouter.HandleFunc("/user/{id}", controllers.DeleteUser).Methods("DELETE")
 
 	return router
 }

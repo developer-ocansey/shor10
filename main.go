@@ -23,7 +23,7 @@ func main() {
 	port := os.Getenv("PORT")
 
 	// Handle routes
-	http.Handle("/", routes.Handlers())
+	http.Handle("/", routes.HandleRequests())
 
 	// serve
 	log.Printf("Server up on port '%s'", port)
